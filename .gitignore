@@ -63,3 +63,6 @@ obb/*
 *.pkg
 *.exe
 build/conda/tmp
+
+# Local install (本地安装产物，勿提交)
+my_tools/

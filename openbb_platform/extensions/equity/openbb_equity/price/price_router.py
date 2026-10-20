@@ -17,6 +17,7 @@ router = Router(prefix="/price")
 @router.command(
     model="EquityQuote",
     examples=[APIEx(parameters={"symbol": "AAPL", "provider": "fmp"})],
+    widget_config={"refetchInterval": 15000},
 )
 async def quote(
     cc: CommandContext,
@@ -47,6 +48,7 @@ async def nbbo(
         APIEx(parameters={"symbol": "AAPL", "provider": "fmp"}),
         APIEx(parameters={"symbol": "AAPL", "interval": "1d", "provider": "intrinio"}),
     ],
+    widget_config={"refetchInterval": 60000},
 )
 async def historical(
     cc: CommandContext,
