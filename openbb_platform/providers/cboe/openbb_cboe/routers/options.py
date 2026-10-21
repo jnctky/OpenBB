@@ -164,6 +164,33 @@ def _table_widget(name: str, columns: list[dict], height: int = 12) -> dict:
     }
 
 
+def _unpack_plotly_binary(obj: Any) -> Any:
+    """Decode Plotly binary-packed arrays ({"dtype": ..., "bdata": ...}) to plain lists.
+
+    ``fig.to_json()`` serializes large numpy arrays as base64 binary blobs.
+    Plotly.js renders them fine, but anything consuming the JSON as data
+    (e.g. Workspace table extraction / Copilot widget-data tool) cannot
+    decode the blobs. Plain arrays are equally valid Plotly input, so
+    decoding is safe for rendering too.
+    """
+    import base64
+
+    import numpy as np
+
+    if isinstance(obj, dict):
+        if "bdata" in obj and "dtype" in obj and set(obj.keys()) <= {"bdata", "dtype"}:
+            try:
+                raw = base64.b64decode(obj["bdata"])
+                dt = np.dtype(obj["dtype"]).newbyteorder("<")
+                return np.frombuffer(raw, dtype=dt).tolist()
+            except Exception:  # noqa: BLE001 - fall back to raw blob
+                return obj
+        return {k: _unpack_plotly_binary(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_unpack_plotly_binary(v) for v in obj]
+    return obj
+
+
 async def _chart_json(builder, symbol: str, theme: str, raw: bool, **kwargs):
     """Load the cached chain, build the view, and return rows or figure JSON."""
     import json
@@ -187,7 +214,7 @@ async def _chart_json(builder, symbol: str, theme: str, raw: bool, **kwargs):
     if raw or output.chart is None:
         return [r.model_dump() for r in (output.results or [])]
 
-    figure_json = json.loads(output.chart.fig.to_json())
+    figure_json = _unpack_plotly_binary(json.loads(output.chart.fig.to_json()))
     figure_json["config"] = CHART_CONFIG
 
     return figure_json
@@ -891,7 +918,7 @@ async def payoff_chart(
     if raw or figure is None:
         return [r.model_dump() for r in (output.results or [])]
 
-    figure_json = json.loads(figure.to_json())
+    figure_json = _unpack_plotly_binary(json.loads(figure.to_json()))
     figure_json["config"] = CHART_CONFIG
 
     return figure_json
